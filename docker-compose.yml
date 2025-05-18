@@ -1,0 +1,10 @@
+services:
+  simple_ddns_cf:
+    build: ./
+    image: simple_ddns_cf:latest
+    restart: unless-stopped
+    container_name: simple_ddns_cf
+    network_mode: host
+    volumes:
+      - ./config.json:/app/config.json
+

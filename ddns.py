@@ -5,8 +5,7 @@ import time,json
 {
      "zone_id":"xxxxxx",
      "token":"xxxxxxx",
-     "domain":"example.com",
-     "record_id":"xxxxxxxx"
+     "domain":"example.com"
 }
 """
 config = json.loads(open('config.json','r',encoding='utf-8').read())
@@ -29,21 +28,44 @@ def cf_get_record_id():
         'Content-Type': 'application/json'
     }
     response = httpx.get(url, headers=headers)
-    return response.json()['result'].find(lambda x:x['name']==config["domain"])['id']
-def cf_ddns(ipv6):          
-    url = f'https://api.cloudflare.com/client/v4/zones/{config["zone_id"]}/dns_records/{config["record_id"]}'
-    headers = {
-        'Authorization': f'Bearer {config["token"]}',
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'type': 'AAAA',
-        'name': config["domain"],
-        'content': ipv6,
-        'ttl': 1
-    }
-    response = httpx.patch(url, headers=headers, json=data)
+    #在result中查找name=config["domain"]的id
+    for result in response.json().get('result', []):
+        if result['name'] == config["domain"]:
+            return result['id']
 
+def cf_ddns(ipv6):
+    record_id = cf_get_record_id()
+    if not record_id:#create dns
+        url = f'https://api.cloudflare.com/client/v4/zones/{config["zone_id"]}/dns_records'
+        headers = {
+            'Authorization': f'Bearer {config["token"]}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'type': 'AAAA',
+            'name': config["domain"],
+            'content': ipv6,
+            'proxied': False,
+            'ttl': 1
+        }
+        response = httpx.post(url, headers=headers, json=data)
+        print(response)
+        print("Create new dns:",config["domain"])
+    else:#update dns
+        url = f'https://api.cloudflare.com/client/v4/zones/{config["zone_id"]}/dns_records/{record_id}'
+        headers = {
+            'Authorization': f'Bearer {config["token"]}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'type': 'AAAA',
+            'name': config["domain"],
+            'content': ipv6,
+            'ttl': 1
+        }
+        response = httpx.patch(url, headers=headers, json=data)
+        print(response)
+        print("Update dns:",config["domain"])
 def main():
     current_ip = None
     while True:
